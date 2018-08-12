@@ -5,7 +5,25 @@ Spyder Editor
 This is a temporary script file.
 """
 
+import os
+os.chdir('F:\GitHub\TrumpTradeWarSentiment/')
+
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from math import log, sqrt
+import pandas as pd
+import numpy as np
+
+import NaiveBayes.naive_bayes as nbnb
+
+from NaiveBayes.naive_bayes import SpamClassifier
+from NaiveBayes.naive_bayes import nbScore
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+test = pd.read_csv("F:/GitHub/TrumpTradeWarSentiment/NaiveBayes/test.csv")
 
 all_texts = ["'There won't be a trade war,' said the president at the signing ceremony to impose the tariffs –which will be 30 percent on imported solar panels and solar cells and 20 percent on large residential washing machines - regarding potential responses on the part of US trade partners such as South Korea and China.",
              "'Our action today helps to create jobs in America for Americans,' Mr. Trump declared as he imposed tariffs on solar cells and washing machines.",
@@ -29,9 +47,44 @@ all_texts = ["'There won't be a trade war,' said the president at the signing ce
 analyser = SentimentIntensityAnalyzer()
 
 def print_sentiment_scores(sentence):
-    snt = analyser.polarity_scores(sentence)
-    print("{:-<40} {}".format(sentence, str(snt)))
+    snt = SentimentIntensityAnalyzer().polarity_scores(sentence)['compound']
+    return snt
     
 
-analyser.
-print_sentiment_scores("Trade War is good")
+
+print_sentiment_scores("Trade War is not bad")
+
+print_sentiment_scores("'There won't be a trade war,' said the president at the signing ceremony to impose the tariffs –which will be 30 percent on imported solar panels and solar cells and 20 percent on large residential washing machines - regarding potential responses on the part of US trade partners such as South Korea and China.")
+
+
+
+
+
+# Naive Bayes    
+train = pd.read_csv("./NaiveBayes/training.csv")
+train['label'] = train['Label'].map({'Pos': 0, 'Neg': 1})
+train.drop(['Label'], axis = 1, inplace = True)
+
+
+
+sc_tf_idf = SpamClassifier(train)
+sc_tf_idf.train()
+
+nbScore = sc_tf_idf.predict(test['message'])
+
+nbScores1 = list()
+for key in nbScore:
+    nbScores1.append(nbScore[key])
+
+bothScores = pd.DataFrame()
+bothScores['SidScores'] = test['message'].map(print_sentiment_scores)
+bothScores['NaiveBayesScores'] = nbScores1
+
+bothScores['SidNorm'] = (np.abs(bothScores['SidScores']) - np.min(np.abs(bothScores['SidScores'])))/(np.max(np.abs(bothScores['SidScores'])) - np.min(np.abs(bothScores['SidScores'])))
+bothScores['NbNorm'] = (np.abs(bothScores['NaiveBayesScores']) - np.min(np.abs(bothScores['NaiveBayesScores'])))/(np.max(np.abs(bothScores['NaiveBayesScores'])) - np.min(np.abs(bothScores['NaiveBayesScores'])))
+bothScores['combined'] = bothScores['SidNorm']+bothScores['NbNorm']
+
+finalResults = test.join(bothScores['combined'])
+finalResults['combined'].rank()
+
+finalResults['IntensityRank'] = finalResults['combined'].rank()
